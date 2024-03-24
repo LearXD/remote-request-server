@@ -8,6 +8,15 @@ export default class Error {
         return this.message
     }
 
+    public getRequestUuid = () => {
+        return this.requestUuid
+    }
+
+    public static fromString = (data: string) => {
+        const parsed = JSON.parse(data)
+        return new Error(parsed.message, parsed.uuid)
+    }
+
     public toString = () => {
         return JSON.stringify({
             type: 'error',

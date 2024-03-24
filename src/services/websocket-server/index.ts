@@ -99,7 +99,21 @@ export default class WebSocketServer {
 
                             this.requests.set(request.getUuid(), socket)
                             setTimeout(() => { this.requests.delete(request.getUuid()) }, 1000 * 60)
-                            return client.send(data)
+                            client.send(data)
+                            break;
+                        case 'error':
+                            console.log(`Received error from ${clientId}`)
+                            const error = Error.fromString(payload.data)
+
+                            const errorOrigin = this.getRequestOrigin(error.getRequestUuid())
+                            this.requests.delete(error.getRequestUuid())
+
+                            if (!errorOrigin) {
+                                return socket.send(new Error('Error origin not found', error.getRequestUuid()).toString())
+                            }
+
+                            origin.send(data)
+                            break;
                     }
 
                 } catch (error) {
