@@ -4,6 +4,7 @@ import { WebSocketServerConfig } from "./types";
 import { v4 as uuidv4 } from 'uuid';
 import Request from '../../utils/request';
 import Response from '../../utils/response';
+import Error from '../../utils/error';
 
 export default class WebSocketServer {
 
@@ -72,17 +73,20 @@ export default class WebSocketServer {
 
                     switch (payload.type) {
                         case 'identifier':
-                            return this.setClientIdentifier(clientId, payload.identifier)
+                            this.setClientIdentifier(clientId, payload.identifier)
+                            break;
                         case 'response':
+                            console.log(`Received response from ${clientId}`)
                             const response = Response.fromString(payload.data)
+
                             const origin = this.getRequestOrigin(response.getUuid())
+                            this.requests.delete(response.getUuid())
 
                             if (!origin) {
-                                throw new Error('Origin not found')
+                                return socket.send(new Error('Origin not found', response.getUuid()).toString())
                             }
 
                             origin.send(data)
-                            this.requests.delete(response.getUuid())
                             break;
                         case 'request':
                             const request = Request.fromString(payload.data)
@@ -90,10 +94,11 @@ export default class WebSocketServer {
                             const client = this.getClientIdentifier(request.getTarget())
 
                             if (!client) {
-                                throw new Error('Client not found')
+                                return socket.send(new Error('Client not found', request.getUuid()).toString())
                             }
 
-                            this.requests.set(request.getUuid(), client)
+                            this.requests.set(request.getUuid(), socket)
+                            setTimeout(() => { this.requests.delete(request.getUuid()) }, 1000 * 60)
                             return client.send(data)
                     }
 
@@ -103,7 +108,14 @@ export default class WebSocketServer {
                 }
             });
 
-            socket.on('close', () => this.removeClient(clientId))
+            socket.on('close', () => {
+                this.removeClient(clientId)
+                this.identifiers.forEach((value, key) => {
+                    if (value === clientId) {
+                        this.identifiers.delete(key)
+                    }
+                })
+            })
         });
     }
 }
