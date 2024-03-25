@@ -67,6 +67,10 @@ export default class WebSocketServer {
         this.instance.on('connection', (socket) => {
             const clientId = this.addClient(socket)
 
+            const pingInterval = setInterval(() => {
+                socket.ping()
+            }, 1000 * 30)
+
             socket.on('message', (data) => {
                 try {
                     const payload = JSON.parse(data.toString())
@@ -123,6 +127,7 @@ export default class WebSocketServer {
             });
 
             socket.on('close', () => {
+                clearInterval(pingInterval)
                 this.removeClient(clientId)
                 this.identifiers.forEach((value, key) => {
                     if (value === clientId) {
